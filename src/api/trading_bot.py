@@ -54,6 +54,7 @@ class TradingBot:
         os.makedirs(self.data_dir / 'processed', exist_ok=True)
         os.makedirs(self.models_dir / 'lstm', exist_ok=True)
         os.makedirs(self.models_dir / 'dqn', exist_ok=True)
+        os.makedirs(self.models_dir / 'ql', exist_ok=True)
         os.makedirs(self.results_dir / 'backtesting', exist_ok=True)
         os.makedirs(self.logs_dir, exist_ok=True)
         
@@ -73,6 +74,7 @@ class TradingBot:
         # Inicializar modelos
         self.lstm_model = None
         self.dqn_agent = None
+        self.ql_agent = None
         
         # Estado del bot
         self.is_running = False
@@ -95,7 +97,7 @@ class TradingBot:
             'api_key': None,
             'api_secret': None,
             'trading_pairs': ['BTC-USDT', 'ETH-USDT'],
-            'strategy': 'lstm',  # 'lstm', 'dqn', 'sma', 'rsi', 'macd'
+            'strategy': 'lstm',  # 'lstm', 'dqn', 'ql', 'sma', 'rsi', 'macd'
             'interval': '1h',
             'trade_amount': 100,  # USDT
             'max_trades_per_day': 5,
@@ -290,6 +292,20 @@ class TradingBot:
         except Exception as e:
             logger.error(f"Error al cargar el agente DQN: {e}")
             return False
+
+    def load_ql_agent(self, model_path=None):
+        """Carga un agente de Q-learning."""
+        try:
+            from models.q_learning_agent import QLearningTradingAgent
+            if model_path is None:
+                model_path = self.models_dir / 'ql' / 'q_table.json'
+            self.ql_agent = QLearningTradingAgent(model_path=model_path)
+            self.ql_agent.load()
+            logger.info(f"Agente Q-learning cargado desde {model_path}")
+            return True
+        except Exception as e:
+            logger.error(f"Error al cargar el agente Q-learning: {e}")
+            return False
     
     def _get_historical_data(self, symbol, interval, limit=500):
         """
@@ -405,21 +421,42 @@ class TradingBot:
         if self.dqn_agent is None:
             logger.error("No hay un agente DQN cargado")
             return None
-        
+
         try:
-            # Crear entorno de trading
             env = TradingEnvironment(df)
-            
-            # Obtener estado actual
             state = env.reset()
-            
-            # Obtener acción recomendada
             action = self.dqn_agent.act(state, training=False)
-            
             return action
-        
         except Exception as e:
             logger.error(f"Error al obtener acción con DQN: {e}")
+            return None
+
+    def train_ql_agent(self, df):
+        """Entrena el agente Q-learning con datos históricos."""
+        if self.ql_agent is None:
+            return
+        try:
+            for i in range(len(df) - 1):
+                state = self.ql_agent.state_from_row(df.iloc[i])
+                next_state = self.ql_agent.state_from_row(df.iloc[i + 1])
+                price_diff = df['close'].iloc[i + 1] - df['close'].iloc[i]
+                reward = price_diff
+                action = self.ql_agent.choose_action(state)
+                self.ql_agent.update(state, action, reward, next_state, i == len(df) - 2)
+        except Exception as e:
+            logger.error(f"Error al entrenar agente Q-learning: {e}")
+
+    def get_action_with_ql(self, df, training=False):
+        """Obtiene la acción recomendada por el agente Q-learning."""
+        if self.ql_agent is None:
+            logger.error("No hay un agente Q-learning cargado")
+            return None
+        try:
+            last_row = df.iloc[-1]
+            state = self.ql_agent.state_from_row(last_row)
+            return self.ql_agent.choose_action(state, training=training)
+        except Exception as e:
+            logger.error(f"Error al obtener acción con Q-learning: {e}")
             return None
     
     def get_action_with_strategy(self, df, strategy='sma'):
@@ -652,10 +689,16 @@ class TradingBot:
                     # Cargar agente DQN si no está cargado
                     if self.dqn_agent is None:
                         self.load_dqn_agent(symbol=symbol)
-                    
+
                     # Obtener acción recomendada
                     action = self.get_action_with_dqn(df_processed)
-                
+
+                elif self.config['strategy'] == 'ql':
+                    if self.ql_agent is None:
+                        self.load_ql_agent()
+                    self.train_ql_agent(df_processed)
+                    action = self.get_action_with_ql(df_processed, training=False)
+
                 else:
                     # Usar estrategia técnica
                     action = self.get_action_with_strategy(df_processed, strategy=self.config['strategy'])

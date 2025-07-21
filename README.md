@@ -9,6 +9,7 @@ Este proyecto implementa un sistema completo de trading con machine learning, ca
 - **Modelos de machine learning**:
   - Modelo LSTM para predicción de precios
   - Modelo DQN (Deep Q-Network) para aprendizaje por refuerzo
+  - Modelo Q-learning para estrategias discretas
   - Sistema de backtesting para evaluar diferentes estrategias
 - **Interfaz de usuario**: Interfaz web intuitiva desarrollada con Streamlit.
 - **Integración con BingX**: Conexión directa con la API de BingX para trading automático.
@@ -23,7 +24,8 @@ trading_ml_project/
 │   └── processed/         # Datos procesados con indicadores técnicos
 ├── models/                # Modelos entrenados
 │   ├── lstm/              # Modelos LSTM para predicción de precios
-│   └── dqn/               # Modelos DQN para aprendizaje por refuerzo
+│   ├── dqn/               # Modelos DQN para aprendizaje por refuerzo
+│   └── ql/                # Modelos Q-learning
 ├── results/               # Resultados de backtesting y trading
 │   └── backtesting/       # Resultados de backtesting de estrategias
 ├── logs/                  # Logs del sistema
@@ -98,6 +100,10 @@ El modelo LSTM (Long Short-Term Memory) se utiliza para predecir los precios fut
 ### Modelo DQN
 
 El modelo DQN (Deep Q-Network) implementa aprendizaje por refuerzo para aprender estrategias de trading óptimas. El agente aprende a tomar decisiones (comprar, vender, mantener) para maximizar las ganancias a largo plazo.
+
+### Modelo Q-learning
+
+El agente Q-learning utiliza un enfoque tabular sencillo basado en indicadores como medias móviles para aprender políticas de compra y venta de forma incremental.
 
 ### Sistema de Backtesting
 

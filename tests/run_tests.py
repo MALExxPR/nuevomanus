@@ -4,7 +4,7 @@ from pathlib import Path
 import os
 
 # Añadir el directorio src al path para poder importar los módulos
-sys.path.append(str(Path(__file__).parent.parent))
+sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 # Importar pruebas individuales
 from test_system import TestDataCollectors, TestDataPreprocessor, TestLSTMModel, TestBacktestingSystem, TestBingXAPI
