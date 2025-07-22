@@ -2,3 +2,5 @@ __pycache__/
 *.pyc
 tests.log
 **/__pycache__/
+build/
+dist/

@@ -84,6 +84,16 @@ cd tests
 python run_tests.py
 ```
 
+### Crear ejecutable
+
+Para generar un ejecutable del sistema utiliza el script `build_executable.sh`:
+
+```bash
+bash build_executable.sh
+```
+
+El archivo resultante se guardará en `dist/TradingML.exe`.
+
 ## Configuración de la API de BingX
 
 Para utilizar la funcionalidad de trading automático, es necesario configurar las credenciales de la API de BingX:
