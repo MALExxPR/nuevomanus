@@ -15,6 +15,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 from api.bingx_api import BingXAPI
 from models.lstm_model import LSTMPricePredictor
 from models.dqn_model import DQNTradingAgent, TradingEnvironment
+from models.random_forest_model import RandomForestPricePredictor
 from models.backtesting import BacktestingSystem
 from data.data_preprocessor import DataPreprocessor
 
@@ -54,6 +55,7 @@ class TradingBot:
         os.makedirs(self.data_dir / 'processed', exist_ok=True)
         os.makedirs(self.models_dir / 'lstm', exist_ok=True)
         os.makedirs(self.models_dir / 'dqn', exist_ok=True)
+        os.makedirs(self.models_dir / 'ql', exist_ok=True)
         os.makedirs(self.results_dir / 'backtesting', exist_ok=True)
         os.makedirs(self.logs_dir, exist_ok=True)
         
@@ -69,10 +71,12 @@ class TradingBot:
         # Inicializar componentes
         self.preprocessor = DataPreprocessor()
         self.backtester = BacktestingSystem()
-        
+
         # Inicializar modelos
         self.lstm_model = None
         self.dqn_agent = None
+        self.ql_agent = None
+        self.rf_model = None
         
         # Estado del bot
         self.is_running = False
@@ -95,7 +99,7 @@ class TradingBot:
             'api_key': None,
             'api_secret': None,
             'trading_pairs': ['BTC-USDT', 'ETH-USDT'],
-            'strategy': 'lstm',  # 'lstm', 'dqn', 'sma', 'rsi', 'macd'
+            'strategy': 'lstm',  # 'lstm', 'dqn', 'ql', 'rf', 'sma', 'rsi', 'macd'
             'interval': '1h',
             'trade_amount': 100,  # USDT
             'max_trades_per_day': 5,
@@ -290,6 +294,34 @@ class TradingBot:
         except Exception as e:
             logger.error(f"Error al cargar el agente DQN: {e}")
             return False
+
+    def load_ql_agent(self, model_path=None):
+        """Carga un agente de Q-learning."""
+        try:
+            from models.q_learning_agent import QLearningTradingAgent
+            if model_path is None:
+                model_path = self.models_dir / 'ql' / 'q_table.json'
+            self.ql_agent = QLearningTradingAgent(model_path=model_path)
+            self.ql_agent.load()
+            logger.info(f"Agente Q-learning cargado desde {model_path}")
+            return True
+        except Exception as e:
+            logger.error(f"Error al cargar el agente Q-learning: {e}")
+            return False
+
+    def load_rf_model(self, model_path=None):
+        """Carga un modelo Random Forest."""
+        try:
+            self.rf_model = RandomForestPricePredictor()
+            if model_path is None:
+                model_path = self.models_dir / 'rf' / 'rf_model.joblib'
+            if Path(model_path).exists():
+                self.rf_model.load_model(model_path)
+                logger.info(f"Modelo Random Forest cargado desde {model_path}")
+            return True
+        except Exception as e:
+            logger.error(f"Error al cargar el modelo Random Forest: {e}")
+            return False
     
     def _get_historical_data(self, symbol, interval, limit=500):
         """
@@ -385,11 +417,23 @@ class TradingBot:
             
             # Obtener última predicción
             last_prediction = results['predictions'][-1]
-            
+
             return last_prediction
-        
+
         except Exception as e:
             logger.error(f"Error al predecir con LSTM: {e}")
+            return None
+
+    def predict_with_rf(self, df):
+        """Realiza predicción con el modelo Random Forest."""
+        if self.rf_model is None:
+            logger.error("No hay un modelo Random Forest cargado")
+            return None
+        try:
+            preds = self.rf_model.predict(df)
+            return preds[-1] if len(preds) > 0 else None
+        except Exception as e:
+            logger.error(f"Error al predecir con Random Forest: {e}")
             return None
     
     def get_action_with_dqn(self, df):
@@ -405,21 +449,42 @@ class TradingBot:
         if self.dqn_agent is None:
             logger.error("No hay un agente DQN cargado")
             return None
-        
+
         try:
-            # Crear entorno de trading
             env = TradingEnvironment(df)
-            
-            # Obtener estado actual
             state = env.reset()
-            
-            # Obtener acción recomendada
             action = self.dqn_agent.act(state, training=False)
-            
             return action
-        
         except Exception as e:
             logger.error(f"Error al obtener acción con DQN: {e}")
+            return None
+
+    def train_ql_agent(self, df):
+        """Entrena el agente Q-learning con datos históricos."""
+        if self.ql_agent is None:
+            return
+        try:
+            for i in range(len(df) - 1):
+                state = self.ql_agent.state_from_row(df.iloc[i])
+                next_state = self.ql_agent.state_from_row(df.iloc[i + 1])
+                price_diff = df['close'].iloc[i + 1] - df['close'].iloc[i]
+                reward = price_diff
+                action = self.ql_agent.choose_action(state)
+                self.ql_agent.update(state, action, reward, next_state, i == len(df) - 2)
+        except Exception as e:
+            logger.error(f"Error al entrenar agente Q-learning: {e}")
+
+    def get_action_with_ql(self, df, training=False):
+        """Obtiene la acción recomendada por el agente Q-learning."""
+        if self.ql_agent is None:
+            logger.error("No hay un agente Q-learning cargado")
+            return None
+        try:
+            last_row = df.iloc[-1]
+            state = self.ql_agent.state_from_row(last_row)
+            return self.ql_agent.choose_action(state, training=training)
+        except Exception as e:
+            logger.error(f"Error al obtener acción con Q-learning: {e}")
             return None
     
     def get_action_with_strategy(self, df, strategy='sma'):
@@ -652,10 +717,28 @@ class TradingBot:
                     # Cargar agente DQN si no está cargado
                     if self.dqn_agent is None:
                         self.load_dqn_agent(symbol=symbol)
-                    
+
                     # Obtener acción recomendada
                     action = self.get_action_with_dqn(df_processed)
-                
+
+                elif self.config['strategy'] == 'ql':
+                    if self.ql_agent is None:
+                        self.load_ql_agent()
+                    self.train_ql_agent(df_processed)
+                    action = self.get_action_with_ql(df_processed, training=False)
+
+                elif self.config["strategy"] == "rf":
+                    if self.rf_model is None:
+                        self.load_rf_model()
+                    prediction = self.predict_with_rf(df_processed)
+                    if prediction is not None:
+                        current_price = df_processed["close"].iloc[-1]
+                        if prediction > current_price * 1.01:
+                            action = 1
+                        elif prediction < current_price * 0.99:
+                            action = 2
+                        else:
+                            action = 0
                 else:
                     # Usar estrategia técnica
                     action = self.get_action_with_strategy(df_processed, strategy=self.config['strategy'])

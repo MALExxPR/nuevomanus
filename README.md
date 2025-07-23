@@ -9,6 +9,8 @@ Este proyecto implementa un sistema completo de trading con machine learning, ca
 - **Modelos de machine learning**:
   - Modelo LSTM para predicción de precios
   - Modelo DQN (Deep Q-Network) para aprendizaje por refuerzo
+  - Modelo Q-learning para estrategias discretas
+  - Modelo Random Forest para predicción rápida de precios
   - Sistema de backtesting para evaluar diferentes estrategias
 - **Interfaz de usuario**: Interfaz web intuitiva desarrollada con Streamlit.
 - **Integración con BingX**: Conexión directa con la API de BingX para trading automático.
@@ -23,7 +25,9 @@ trading_ml_project/
 │   └── processed/         # Datos procesados con indicadores técnicos
 ├── models/                # Modelos entrenados
 │   ├── lstm/              # Modelos LSTM para predicción de precios
-│   └── dqn/               # Modelos DQN para aprendizaje por refuerzo
+│   ├── dqn/               # Modelos DQN para aprendizaje por refuerzo
+│   ├── ql/                # Modelos Q-learning
+│   └── rf/                # Modelos Random Forest
 ├── results/               # Resultados de backtesting y trading
 │   └── backtesting/       # Resultados de backtesting de estrategias
 ├── logs/                  # Logs del sistema
@@ -82,6 +86,16 @@ cd tests
 python run_tests.py
 ```
 
+### Crear ejecutable
+
+Para generar un ejecutable del sistema utiliza el script `build_executable.sh`:
+
+```bash
+bash build_executable.sh
+```
+
+El archivo resultante se guardará en `dist/TradingML.exe`.
+
 ## Configuración de la API de BingX
 
 Para utilizar la funcionalidad de trading automático, es necesario configurar las credenciales de la API de BingX:
@@ -98,6 +112,14 @@ El modelo LSTM (Long Short-Term Memory) se utiliza para predecir los precios fut
 ### Modelo DQN
 
 El modelo DQN (Deep Q-Network) implementa aprendizaje por refuerzo para aprender estrategias de trading óptimas. El agente aprende a tomar decisiones (comprar, vender, mantener) para maximizar las ganancias a largo plazo.
+
+### Modelo Q-learning
+
+El agente Q-learning utiliza un enfoque tabular sencillo basado en indicadores como medias móviles para aprender políticas de compra y venta de forma incremental.
+
+### Modelo Random Forest
+
+El predictor Random Forest usa árboles de decisión en conjunto para ofrecer una estimación rápida de la dirección del mercado basada en indicadores técnicos.
 
 ### Sistema de Backtesting
 
