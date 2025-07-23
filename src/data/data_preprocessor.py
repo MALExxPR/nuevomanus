@@ -84,9 +84,7 @@ class DataPreprocessor:
         if df is None or df.empty:
             return df
         
-        # Verificar la estructura del DataFrame
-        print(f"Columnas en el DataFrame: {df.columns}")
-        print(f"Primeras filas del DataFrame:\n{df.head()}")
+        # Verificar la estructura del DataFrame (sin imprimir en producción)
         
         # Asegurarse de que tenemos las columnas necesarias y que son numéricas
         # Para datos de yfinance, las columnas típicas son: Open, High, Low, Close, Adj Close, Volume
@@ -115,7 +113,6 @@ class DataPreprocessor:
             numeric_cols = df.select_dtypes(include=['number']).columns
             
             if len(numeric_cols) >= 5:
-                print(f"Usando columnas numéricas disponibles: {numeric_cols}")
                 # Asignar las primeras 5 columnas numéricas a OHLCV
                 df['open'] = df[numeric_cols[0]]
                 df['high'] = df[numeric_cols[1]]
@@ -123,7 +120,6 @@ class DataPreprocessor:
                 df['close'] = df[numeric_cols[3]]
                 df['volume'] = df[numeric_cols[4]]
             else:
-                print("No hay suficientes columnas numéricas para calcular indicadores técnicos.")
                 return df
         
         # Asegurarse de que no hay valores nulos antes de calcular indicadores
