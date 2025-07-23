@@ -27,7 +27,7 @@ class ForexDataCollector:
         # Crear el directorio si no existe
         os.makedirs(self.data_dir, exist_ok=True)
     
-    def get_data_from_yfinance(self, symbol, period="2y", interval="1d"):
+    def get_data_from_yfinance(self, symbol, period="2y", interval="1d", save_dir=None):
         """
         Obtiene datos históricos de forex usando yfinance.
         
@@ -41,10 +41,14 @@ class ForexDataCollector:
         """
         try:
             data = yf.download(symbol, period=period, interval=interval)
-            
+
+            # Determinar directorio de guardado
+            save_path = Path(save_dir) if save_dir else self.data_dir
+            os.makedirs(save_path, exist_ok=True)
+
             # Guardar los datos en un archivo CSV
             filename = f"{symbol.replace('=', '_')}_{interval}_{period}.csv"
-            filepath = self.data_dir / filename
+            filepath = save_path / filename
             data.to_csv(filepath)
             
             print(f"Datos de {symbol} guardados en {filepath}")
