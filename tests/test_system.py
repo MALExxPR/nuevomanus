@@ -7,7 +7,7 @@ import os
 import json
 
 # Añadir el directorio src al path para poder importar los módulos
-sys.path.append(str(Path(__file__).parent.parent))
+sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 # Importar módulos del proyecto
 from data.crypto_data_collector import CryptoDataCollector
